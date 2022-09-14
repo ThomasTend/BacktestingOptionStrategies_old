@@ -38,10 +38,10 @@ class Option_Pricer():
         pass
 
 """
-Volatility class: compute Volatility and implied volatility. It inherits Option_Pricer in order to compute the implied volatility from the observed volatility. 
+Volatility class: compute volatility and implied volatility. It inherits Option_Pricer in order to compute the implied volatility from the market price and the pricing model.
 """
 
-class Volatility():
+class Volatility(Option_Pricer):
     def __init__(self):
         pass 
 
