@@ -5,6 +5,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from sklearn.linear_model import LinearRegression as LR
+
 
 class App(tk.Tk):
     def __init__(self):
@@ -26,7 +28,6 @@ class App(tk.Tk):
 
         self.plot_stock_close = tk.Button(self, text='Plot closing price series', command=self.plot_close) 
         self.plot_stock_close.grid(row=0, column=3)
-        
 
     def plot_close(self):
         """
@@ -41,6 +42,13 @@ class App(tk.Tk):
         # plot
         fig, ax = plt.subplots(1,1)
         ax.plot(data.index, data[variable])
+        """
+        Train on the first half of the perido and predict the second half, plot to compare with actual
+        First example of a backtest
+        """
+
+        # Plot mean
+        # ax.plot(data.index, [data[variable].mean() for _ in range(len(data.index))])
         # ax.legend()
         canvas = FigureCanvasTkAgg(fig, master=self)
         canvas.draw()
