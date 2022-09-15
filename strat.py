@@ -51,7 +51,7 @@ class VaR():
     def __init__(self):
         pass 
 
-class Features(Fourier, Option_Pricer, Volatility, VaR):
+class Features(Fourier, Volatility, VaR):
     def __init__(self):
         pass 
 
