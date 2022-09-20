@@ -5,6 +5,8 @@ Author: Thomas Tendron
 import warnings
 warnings.simplefilter(action='ignore')
 
+# stats
+import statsmodels.api as sm
 
 # data manipulation modules
 from datetime import datetime as dt
@@ -25,52 +27,86 @@ from sklearn.metrics import mean_squared_error as MSE
 # Graphing modules
 import matplotlib.pyplot as plt
 
-
-# # no warning messages in matplotlib backend
-# from PyQt5.QtCore import QLoggingCategory
-
-# QLoggingCategory.setFilterRules('qt.qpa.dialogs.debug=false')
-
 """ FEATURE SELECTION TOOLS"""
 
-"""
-Fourier class: compute Fourier features.
-"""
-
 class Fourier():
+    """
+    Fourier class: compute Fourier features.
+    """
     def __init__(self):
         pass
-
-"""
-Pricing class: Price options using Black-Scholes and extensions
-"""
 
 class Option_Pricer():
+    """
+    Pricing class: Price options using Black-Scholes and extensions
+    """
     def __init__(self):
         pass
 
-"""
-Volatility class: compute volatility and implied volatility. It inherits Option_Pricer in order to compute the implied volatility from the market price and the pricing model.
-"""
-
 class Volatility(Option_Pricer):
+    """
+    Volatility class: compute volatility from historical price. 
+    It inherits Option_Pricer in order to compute the implied volatility from the market price and the pricing model.
+    Also includes functions to compute and plot returns and log change in price. 
+
+    Definition of volatility: Annualized standard deviation of the change in price or value of a financial security. (often log change)
+
+    TODO:
+    - Historical/ sample volatility measures
+    - geometric Brownian motion model
+    - Poisson jump diffusion model
+    - ARCH/GARCH models
+    - Stochastic Volatility (SV) models
+
+    """
     def __init__(self, price):
         self.price = price
+        self.price_lag = self.price.shift(1)
+        price_list = self.price.to_numpy()
+        price_lag_list = self.price_lag.to_numpy()
+        self.price_df = pd.DataFrame(np.concatenate((self.price.to_numpy(), self.price_lag.to_numpy()), axis=1), columns=["price", "price_lag"], index = self.price.index)
+        self.price_df.dropna(axis=0, inplace=True)
+        self.price_df["log_change"] = np.log(self.price_df.price / self.price_df.price_lag).to_numpy().flatten()
 
     def get_returns(self):
         """
-        histograms of percentage price changes (may have fat tails, multiple modes, not necessarily normal)
+        Computes percentage price change series: (P_t-P_{t-1}) / P_{t-1}.
         """
-        price_lag = self.price.shift(1)
-        diff = self.price-price_lag
+        diff = self.price-self.price_lag
         diff.dropna(axis=0, inplace=True)
-        self.returns = diff / price_lag
+        self.returns = diff / self.price_lag
+
+    def plot_returns(self):
+        """
+        Plots a histogram of percentage price changes (may have fat tails, multiple modes, not necessarily normal)
+        """
         self.returns.plot(kind="hist")
         plt.show()
 
-"""VaR class: Computes the Value-at-Risk for a given portfolio."""
+    def get_log_change(self):
+        """
+        Computes the log change time series: log( (Price on day t) / (price on day t-1) ).
+        """
+        self.log_change_no_nan = np.log(self.price_df.price / self.price_df.price_lag).to_numpy()
+        # drop NaN values
+        mask = ~np.isnan(self.log_change_no_nan)
+        self.log_change_no_nan = pd.Series(self.log_change_no_nan[mask], index=self.price_df.index[mask])
+    
+    def get_historical_volatility(self):
+        """
+        Get volatility (annualized std of log change) assuming stationarity.
+        """
+        self.get_log_change()
+        print("Volatility is: {}".format(np.sqrt(252)*self.log_change_no_nan.std()))
+
+    def plot_log_change(self):
+        self.price_df.log_change.plot(kind="line")
+        plt.show()
 
 class VaR(Volatility):
+    """
+    VaR class: Computes the Value-at-Risk for a given portfolio.
+    """
     def __init__(self, time_series):
         """
         Typically, time_series is a stock price time series. 
@@ -103,7 +139,35 @@ class Features(Fourier, VaR):
         self.target = target
 
     def compute_corr(self):
-        print(self.time_series.corr()[self.target].sort_values(ascending=False))
+        self.target_feature_corr = self.time_series.corr()[self.target].sort_values(ascending=False)
+        print(self.target_feature_corr)
+
+    def plot_corr(self):
+        """
+        Compute correlations between target and features.
+        """
+        ax = self.target_feature_corr.plot(kind="line")
+        ax.set_xticks(np.arange(len(self.target_feature_corr.index)))
+        # ax.set_xticklabels(list(self.target_feature_corr.index))
+        plt.show()
+
+    def compute_autocorr(self, max_lag=200):
+        """
+        Computes the autocorrelation of the target series for all lags up to max_lag.
+        High autocorrelation for many lags suggests momentum.
+        Autocorrelation which decays quickly as we lag further into the past suggests high volatility and low momentum.
+        """
+        self.partial_autocorr = [self.time_series[self.target].autocorr(lag=i) for i in range(max_lag)]
+        print(*("Partial autocorrelation with lag {} is {}".format(i, self.partial_autocorr[i]) for i in range(max_lag)), sep='\n')
+        
+    def plot_autocorr(self):
+        """
+        Cisualize partial autocorrelation of target.
+        """
+        horiz_axis = np.arange(len(self.partial_autocorr))
+        df = pd.Series(self.partial_autocorr, index=horiz_axis)
+        df.plot(kind="line")
+        plt.show()
 
 """PRICE PREDICTION TOOL"""
 
@@ -167,6 +231,9 @@ class Prediction(Features):
         self.data.dropna(axis=0, inplace=True)
 
     def preprocess_data(self, other_lag_features = ["Volume"]):
+        """
+        Ready features and target for training.
+        """
         # Remove extra columns
         cols_to_rem = list(set(self.data.columns) - set(other_lag_features + [self.target]))
         self.data.drop(labels=cols_to_rem, axis=1, inplace=True)
@@ -196,46 +263,69 @@ class Prediction(Features):
         self.X_test = X_test
         self.y_test = y_test
         
+    def print_p_values(self):
+        """
+        Print p-values of LR model coefficients.
+        """
+        print(self.X_train)
+        print(self.y_train)
+        X_with_intercept = sm.add_constant(self.X_train)
+        ols = sm.OLS(self.y_train[self.target], X_with_intercept).fit()
+        print(ols.summary())
+
     def train_and_predict(self, model_name="LR"):
+        """
+        Train model of choice on train set and save prediction on test features.
+        """
         self.model_name = model_name
         self.model = LR()
         self.model.fit(self.X_train, self.y_train)
         self.y_pred = self.model.predict(self.X_test)
+        #self.print_p_values()
 
     def score(self, metric="mse"):
+        """
+        Print evaluation metric for test target vs test prediction. 
+        """
         mse = MSE(self.y_test, self.y_pred)
         print("MSE is {}".format(mse))
 
 """STRATEGY SELECTION AND BUILDING"""
 
-"""
-Strat class: allows to define a long-short strategy. For example, 
-Long Stock + Short Put (Covered call), 
-Long Bond/stock + Long Call, 
-Short stock + Long Put (Protective put), 
-Long stock + short Put 
-
-It inherits Option_Pricer.
-"""
-
 class Strat(Option_Pricer):
+    """
+    Strat class: allows to define a long-short strategy. For example, 
+    Long Stock + Short Put (Covered call), 
+    Long Bond/stock + Long Call, 
+    Short stock + Long Put (Protective put), 
+    Long stock + short Put 
+
+    It inherits Option_Pricer.
+    """
+    def __init__(self):
+        pass
+
+"""
+Portfolio class: set of positions and strategies.
+"""
+
+class Portfolio(Strat):
     def __init__(self):
         pass
 
 """BACKTESTING TOOL"""
 
-"""
-Define a class backtest() to streamline the backtesting process. With this class we can:
-1) Fetch a stock's data from Yahoo Finance
-2) Train a model available on sklearn or tensorflow on Historical data for a choice of independent and dependent variables
-3) Visualize predictions on the past vs historical data
-4) Simulate a trading strategy/portfolio on past data and obtain statistics on the returns that one would have gotten
-
-It inherits the Prediction and Strat classes.
-"""
-
 class Backtest(Prediction, Strat):
-    def __init__(self, asset = "stock", asset_id = "msft", target="Close", period = "1y", days_to_pred = 2, num_lag_features= 20, historical_start_idx = 225):
+    """
+    Define a class backtest() to streamline the backtesting process. With this class we can:
+    1) Fetch a stock's data from Yahoo Finance
+    2) Train a model available on sklearn or tensorflow on Historical data for a choice of independent and dependent variables
+    3) Visualize predictions on the past vs historical data
+    4) Simulate a trading strategy/portfolio on past data and obtain statistics on the returns that one would have gotten
+
+    It inherits the Prediction and Strat classes.
+    """
+    def __init__(self, asset = "stock", asset_id = "msft", target="Close", period = "1y", days_to_pred = 2, num_lag_features= 20, historical_start_idx = 250):
         """
         historical_start_idx is the number of days we look back from today. It is in units of days and has to be less than the days in period.
         """
@@ -243,7 +333,10 @@ class Backtest(Prediction, Strat):
         self.make_train_test()
         self.train_and_predict()
         self.fig, self.ax = plt.subplots(1,1)
-        self.historical_start_idx = historical_start_idx
+        if historical_start_idx == -1:
+            self.historical_start_idx = len(self.dates)
+        else:
+            self.historical_start_idx = historical_start_idx
         self.X_future = self.data_future[self.feature_cols]
 
     def get_future_dates(self, start_date):
@@ -274,17 +367,39 @@ class Backtest(Prediction, Strat):
 
 """ PIPELINE """
 
-bt = Backtest(asset = "stock", asset_id = "baba", target="Close", period="1y", days_to_pred = 3 , num_lag_features = 30)
+# Create backtest
+bt = Backtest(asset = "stock", asset_id = "sq", target="Close", period="max", days_to_pred = 2 , num_lag_features = 30, historical_start_idx=-1)
+# Plot historical stock price
 bt.plot_historical()
+# Plot prediction on same plot as historical price for visual comparison
 bt.plot_backtest()
+# Plot future prediction on same plot
 bt.plot_future_prediction()
+# Call plt.show()
 bt.plot_all()
+# Print MSE on test set
 bt.score()
-# v = VaR(bt.price)
-# v.get_single_stock_VaR()
-# bt.compute_corr()
+# Compute volatility:
+vol = Volatility(bt.price)
+vol.get_historical_volatility()
+# Plot log change
+vol.plot_log_change()
+# Compute Value-at-Risk
+v = VaR(bt.price)
+v.get_single_stock_VaR()
+# Compute Correlation and autocorrelation
+bt.compute_corr()
+bt.plot_corr()
+bt.compute_autocorr()
+bt.plot_autocorr()
 
 # TODO
+# Implement ARMA, Yule-Walker Equations, application of Method of Moments
+# Removing non-stationary trending behavior from non-stationary series like RW using difference operators (Box, Jenkins) 
+# Example of non-stationary processes: linear trend reversion model, SRW, pure integrated process, stochastic trend process
+# Stationarity checks: Dickey-Fuller Test
+# ARIMA models: determine order of differencing required to remove time trends, estimate unknown params of ARIMA, select ARIMA model
+
 # option pricing with blackscholes
 # volatility and implied volatility modelling
 # strategy implementation and backtesting: pairs e.g. S+P or B+C
