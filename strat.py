@@ -315,7 +315,7 @@ class Portfolio(Strat):
 
 """BACKTESTING TOOL"""
 
-class Backtest(Prediction, Strat):
+class Backtest(Prediction, Portfolio):
     """
     Define a class backtest() to streamline the backtesting process. With this class we can:
     1) Fetch a stock's data from Yahoo Finance
