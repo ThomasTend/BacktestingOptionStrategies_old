@@ -1,21 +1,13 @@
 """
 Author: Thomas Tendron
 
-This file comprises four sections:
-1) Feature Selection Tools
-2) Prediction Tools
-3) Strategy Selection and Building
-4) Backtesting Tool
-
-Each of these four sections contains multiple classes which together implement a tool. 
-
+This file is a pipeline for the backtesting framework.
 """
 
 from backtesting import *
 from features import *
 
 """ PIPELINE """
-
 
 # Create backtest
 bt = Backtest(asset = "stock", asset_id = "msft", target="Close", period="1y", days_to_pred = 2 , num_lag_features = 30, historical_start_idx=250)

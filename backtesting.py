@@ -1,7 +1,7 @@
 """
 Author: Thomas Tendron
 
-This file implements the Strategy Tool.
+This file implements the backtesting tool.
 """
 
 """ 4 - BACKTESTING TOOL"""

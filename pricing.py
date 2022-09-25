@@ -1,7 +1,7 @@
 """
 Author: Thomas Tendron
 
-This file implements the Pricing Tool.
+This file implements the pricing Tool.
 """
 
 # stats

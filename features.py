@@ -1,7 +1,7 @@
 """
 Author: Thomas Tendron
 
-This file implements the Feature Selection Tool.
+This file implements the feature selection tool.
 """
 
 """ 1 - FEATURE SELECTION TOOLS"""

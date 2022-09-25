@@ -1,7 +1,7 @@
 """
 Author: Thomas Tendron
 
-This file implements the Prediction Tool.
+This file implements the prediction Tool.
 """
 
 # Ignore some warnings
