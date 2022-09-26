@@ -1,4 +1,8 @@
-# Showing plot of financial data from Yahoo Finance
+"""
+Author: Thomas Tendron
+
+This file implements a GUI in Python. For now just a basic test.
+"""
 import tkinter as tk
 import yfinance as yf
 import pandas as pd
@@ -49,7 +53,7 @@ class App(tk.Tk):
 
         # Plot mean
         # ax.plot(data.index, [data[variable].mean() for _ in range(len(data.index))])
-        # ax.legend()
+        # ax.label()
         canvas = FigureCanvasTkAgg(fig, master=self)
         canvas.draw()
         canvas.get_tk_widget().grid(row=1,column=1, columnspan=3)

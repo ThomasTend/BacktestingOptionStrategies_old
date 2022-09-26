@@ -32,20 +32,34 @@ from sklearn.metrics import mean_squared_error as MSE
 # Graphing modules
 import matplotlib.pyplot as plt
 
+# import parent classes
+from prediction import *
 from pricing import *
 
-""" 3 - STRATEGY SELECTION AND BUILDING"""
+""" STRATEGY SELECTION AND BUILDING"""
 
-class Strat(Option_Pricer):
+class Strat(Prediction, Option_Pricer):
     """
-    Strat class: allows to define a long-short strategy. For example, 
-    Long Stock + Short Put (Covered call), 
-    Long Bond/stock + Long Call, 
-    Short stock + Long Put (Protective put), 
-    Long stock + short Put 
-
-    It inherits Option_Pricer.
+    Strat class: allows to define a long-short or momentum strategies. For example, 
+    Long underlying + Short call (Covered call), 
+    Long underlying + Long Put (Protective put), 
+    A protective put and a covered call on the same assets (Protective collar)
+    Long call and put on same asset with same strike price and expiry (Long straddle) 
     """
-    def __init__(self):
-        pass
+    def __init__(self, asset = "stock", asset_id = "MSFT", target="Close", period="max", days_to_pred = 2, num_lag_features = 20):
+        Prediction.__init__(self, asset = "stock", asset_id = "MSFT", target="Close", period="max", days_to_pred = 2, num_lag_features = 20)
+        
+    def test(self):
+        print('Options are ', self.s.options)
+        self.opt = self.s.option_chain(date=self.s.options[0])
+        print(type(self.opt))
+        # print(self.opt.columns)
+        print("Calls are")
+        print(self.opt.calls.head())
+        print(self.opt.calls.columns)
+        print("Puts are")
+        print(self.opt.puts.head())
+        print(self.opt.puts.columns)
 
+strat = Strat(asset = "stock", asset_id = "MSFT", target="Close", period="max", days_to_pred = 2, num_lag_features = 20)
+strat.test()

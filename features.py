@@ -16,6 +16,7 @@ import numpy as np
 # Graphing modules
 import matplotlib.pyplot as plt
 
+# import classes used in feature analysis, construction or selection
 from pricing import *
 from numerical import *
 
@@ -42,7 +43,7 @@ class Returns():
         """
         Plots a histogram of percentage price changes (may have fat tails, multiple modes, not necessarily normal)
         """
-        self.returns.plot(kind="hist")
+        self.returns.plot(kind="hist", title="Percentage price change")
         plt.show()
 
     def get_log_change(self):
@@ -55,7 +56,8 @@ class Returns():
         self.log_change_no_nan = pd.Series(self.log_change_no_nan[mask], index=self.price_df.index[mask])
     
     def plot_log_change(self):
-        self.price_df.log_change.plot(kind="line")
+        self.price_df.log_change.plot(kind="line", label="Log change in price")
+        plt.tight_layout()
         plt.show()
 
 class Volatility(Option_Pricer, Returns):
@@ -104,12 +106,14 @@ class Volatility(Option_Pricer, Returns):
         # Set function to be the difference between observed price and BSM price
         f = lambda x: self.OP_obs - self.price_option(x, manual = True)
         # Return output of bisection algorithm
-        num = numerical()
+        num = Numerical()
         return num.bisection(f, 0, 2)
 
 class VaR(Returns):
     """
     VaR class: Computes the Value-at-Risk for a given portfolio.
+    TODO: variance-covariance method, MC simulation
+    TODO: backtest accuracy of VaR, i.e. compare predicted losses vs realized losses.
     """
     def __init__(self, time_series):
         """
@@ -127,9 +131,8 @@ class VaR(Returns):
         If time_series is a stock price, prints single stock VaR calculation given a certain position size. 
         """
         z_score = st.norm.ppf(1-threshold)
-        self.VaR = z_score*self.returns.std()*self.time_series.iloc[-1,0]*position_size
+        self.VaR = z_score*self.returns.std()*position_size
         print("95% VaR is {}".format(self.VaR))
-
 
 class Correlations():
     """
@@ -138,7 +141,7 @@ class Correlations():
     """
     def __init__(self, time_series, target):
         """
-        For now, time_series is assumed to be a pandas data frame.   
+        For now, time_series is assumed to be a pandas data frame.
         """
         self.time_series = time_series
         self.target = target
@@ -150,9 +153,12 @@ class Correlations():
         """
         Compute correlations between target and features.
         """
-        ax = self.target_feature_corr.plot(kind="line")
+        ax = self.target_feature_corr.plot(kind="line", title="Target-Feature Correlations")
         ax.set_xticks(np.arange(len(self.target_feature_corr.index)))
-        # ax.set_xticklabels(list(self.target_feature_corr.index))
+        # if few features, print their names along the x-axis
+        if len(self.target_feature_corr.index) < 20: 
+            ax.set_xticklabels(list(self.target_feature_corr.index))
+        plt.tight_layout()
         plt.show()
 
     def compute_autocorr(self, max_lag=200):
@@ -170,7 +176,8 @@ class Correlations():
         """
         horiz_axis = np.arange(len(self.partial_autocorr))
         df = pd.Series(self.partial_autocorr, index=horiz_axis)
-        df.plot(kind="line")
+        df.plot(kind="line", title="Target autocorrelation")
+        plt.tight_layout()
         plt.show()
 
 class Fourier():

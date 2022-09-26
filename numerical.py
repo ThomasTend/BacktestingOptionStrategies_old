@@ -1,6 +1,15 @@
+"""
+Author: Thomas Tendron
+
+This file impliements common numerical methods that we use when backtesting.
+"""
+
 import math
 
-class numerical():
+class Numerical():
+    """
+    Numerical class: common numerical methods.
+    """
     def __init__(self):
         pass
 

@@ -23,9 +23,10 @@ from sklearn.model_selection import train_test_split as TTS
 from sklearn.linear_model import LinearRegression as LR
 from sklearn.metrics import mean_squared_error as MSE
 
+# import parent classes
 from features import *
 
-""" 2 - PREDICTION TOOLS"""
+""" PREDICTION TOOLS"""
 
 class Prediction(Features):
     def __init__(self, asset = "stock", asset_id = "MSFT", target="Close", period="max", days_to_pred = 2, num_lag_features = 20):
@@ -38,8 +39,8 @@ class Prediction(Features):
         self.period = period
         self.days_to_pred = days_to_pred
         self.num_lag_features = num_lag_features
-        s = yf.Ticker(self.asset_id)
-        self.data = s.history(period=self.period)
+        self.s = yf.Ticker(self.asset_id)
+        self.data = self.s.history(period=self.period)
         self.data.index = pd.to_datetime(self.data.index)
         self.dates = self.data.index
         self.price = self.data[self.target]
@@ -53,7 +54,7 @@ class Prediction(Features):
             self.data.loc[:, col] = scaler.fit_transform(self.data.loc[:, col].to_numpy().reshape(-1, 1))
         self.price = pd.DataFrame(scaler.fit_transform(self.price.to_numpy().reshape(-1, 1)), index=self.dates)
         
-    def add_lags(self, cols_for_lag_features): 
+    def add_lags(self, cols_for_lag_features):
         """
         Adds two day lags in the past for features and one day in the future for targets. ALways lags the target, can also lag other coloumns listed in argument cols.
         """

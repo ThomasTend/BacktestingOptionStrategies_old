@@ -4,13 +4,14 @@ Author: Thomas Tendron
 This file is a pipeline for the backtesting framework.
 """
 
+# import relevant classes
 from backtesting import *
 from features import *
 
 """ PIPELINE """
 
 # Create backtest
-bt = Backtest(asset = "stock", asset_id = "msft", target="Close", period="1y", days_to_pred = 2 , num_lag_features = 30, historical_start_idx=250)
+bt = Backtest(asset = "stock", asset_id = "msft", target="Close", period="1y", days_to_pred = 2 , num_lag_features = 7, historical_start_idx=250)
 # Plot historical stock price
 bt.plot_historical()
 # Plot prediction on same plot as historical price for visual comparison
