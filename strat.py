@@ -2,6 +2,8 @@
 Author: Thomas Tendron
 
 This file implements the Strategy Tool.
+
+We use a stock options dataset from Kaggle with data between 13/11/2017 and 09/08/2019.
 """
 
 # Ignore some warnings
@@ -47,19 +49,24 @@ class Strat(Prediction, Option_Pricer):
     Long call and put on same asset with same strike price and expiry (Long straddle) 
     """
     def __init__(self, asset = "stock", asset_id = "MSFT", target="Close", period="max", days_to_pred = 2, num_lag_features = 20):
-        Prediction.__init__(self, asset = "stock", asset_id = "MSFT", target="Close", period="max", days_to_pred = 2, num_lag_features = 20)
-        
-    def test(self):
-        print('Options are ', self.s.options)
-        self.opt = self.s.option_chain(date=self.s.options[0])
-        print(type(self.opt))
-        # print(self.opt.columns)
-        print("Calls are")
-        print(self.opt.calls.head())
-        print(self.opt.calls.columns)
-        print("Puts are")
-        print(self.opt.puts.head())
-        print(self.opt.puts.columns)
+        Prediction.__init__(self, asset = asset, asset_id = asset_id, target=target, period=period, days_to_pred = days_to_pred, num_lag_features = num_lag_features)
+        # Load options data
+        date_parser = lambda x : dt.strptime(x, '%d/%m/%Y') if pd.isnull(x) != True else x
+        self.options = pd.read_csv("data/stock_options.csv", parse_dates = ['date', 'expiration_date'], date_parser = date_parser)
+        # Create column with time to expiry
+        self.options['time_to_expiry'] = self.options.expiration_date-self.options.date
+        # Make time to expiry NaN if it's negative
+        self.options.time_to_expiry.mask(self.options.time_to_expiry <= timedelta(), np.nan, inplace=True) 
+        # Remove row if time to expiry is NaN or expiration date is Null (no other column contains NaN)         
+        self.options.dropna(axis=0, inplace=True) # affects 2437 rows out of 62795
 
-strat = Strat(asset = "stock", asset_id = "MSFT", target="Close", period="max", days_to_pred = 2, num_lag_features = 20)
-strat.test()
+    def get_stock_options(self, start_date):
+        """
+        Get options tradable on start_date (pd datetime64 object) and for the symbol self.asset_id.
+        """
+        self.tradable = self.options[(self.options.sym == self.asset_id) & (self.options.date == start_date)]
+        print(self.tradable.head())
+        print(self.tradable.tail())
+
+strat = Strat(asset = "stock", asset_id = "AMD", target="Close", period="max", days_to_pred = 2, num_lag_features = 20)
+strat.get_stock_options(pd.to_datetime("2019-08-09", format="%Y-%m-%d"))

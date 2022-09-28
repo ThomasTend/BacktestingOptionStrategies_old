@@ -136,7 +136,7 @@ class VaR(Returns):
 
 class Correlations():
     """
-    Correlation clas: Computes correlation between independent variables and target.
+    Correlation class: Computes correlation between independent variables and target.
     Computes the autocorrelation. Plots both. 
     """
     def __init__(self, time_series, target):
