@@ -63,3 +63,9 @@ class Backtest(Prediction, Portfolio):
         self.ax.set(xlabel="Time", ylabel="Price", title="Backtest Price vs Time")
         self.ax.legend()
         plt.show()
+
+    def test_systematic_portfolio(self):
+        """
+        We assume perfect liquidity (mainly can sell when we want to) and no transaction costs.
+        """
+        pass

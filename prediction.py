@@ -64,11 +64,9 @@ class Prediction(Features):
         for col in cols_for_lag_features:
             for i in range(self.num_lag_features):
                 self.data[col+"_lag_{}".format(i+1)] = self.data[col].shift(i+1)
-        
         # target = future
         for i in range(self.days_to_pred-1): # -1 because self.target is included
                 self.data[self.target + "_step_{}".format(i+1)] = self.data[self.target].shift(-(i+1))
-
         # Save today's features for true prediction task
         self.data_future = pd.DataFrame(self.data.loc[self.data.index[-1],:].to_numpy().reshape(1, -1), index=[self.data.index[-1]], columns=self.data.columns)
         other_to_rem = [col+"_lag_{}".format(self.num_lag_features) for col in cols_for_lag_features]
@@ -83,7 +81,6 @@ class Prediction(Features):
                         d[c+"_lag_{}".format(i)] = c+"_lag_{}".format(i+1)
         self.data_future.rename(mapper=d, axis=1, inplace=True)
         self.data_future.dropna(axis=1, inplace=True)
-
         # Drop rows containing a NaN value 
         self.data.dropna(axis=0, inplace=True)
 
@@ -104,10 +101,18 @@ class Prediction(Features):
         # Save names of lags of the target used as features
         self.feature_cols = list(set(self.data.columns) - set(self.target_cols) - set(other_lag_features))
 
-    def make_train_test(self):
+    def make_train_test(self, start_date=-1):
         """
         This function prepares the train and test data.
+        The argument start_date is used in the Strat class to choose suitable strategies on a given date. 
         """
+        # if start_date is note used, choose the latest date in the yahoo finance stock data (today on weekdays)
+        if start_date == -1:
+            start_date = self.data.index[-1]
+        # truncate up to the date at which future predictions start
+        self.data = self.data.loc[:start_date,:]
+        print('checking last date')
+        print(self.data.tail())
         # Preprocess
         self.preprocess_data()
         # train_test_split
