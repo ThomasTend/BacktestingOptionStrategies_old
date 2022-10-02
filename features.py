@@ -83,7 +83,9 @@ class Volatility(Option_Pricer, Returns):
         Get volatility (annualized std of log change) assuming stationarity.
         """
         self.get_log_change()
-        print("Volatility is: {}".format(np.sqrt(252)*self.log_change_no_nan.std()))
+        hist_vol = np.sqrt(252)*self.log_change_no_nan.std()
+        # print("Volatility is: {}".format(hist_vol))
+        return hist_vol
 
     def get_implied_volatility(self, S_0, OP_obs, K, T, r, option_type = "call"):
         """
@@ -108,6 +110,9 @@ class Volatility(Option_Pricer, Returns):
         # Return output of bisection algorithm
         num = Numerical()
         return num.bisection(f, 0, 2)
+
+    # def init_Option_Pricer(self, S_0, OP_obs, K, T, r, sigma, option_type):
+    #     Option_Pricer.__init__(self, T = T, S_0 = S_0, sigma = sigma, K = K, r = r, option_type = option_type)
 
 class VaR(Returns):
     """

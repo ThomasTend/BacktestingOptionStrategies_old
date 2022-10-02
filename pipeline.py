@@ -11,7 +11,8 @@ from features import *
 """ PIPELINE """
 
 # Create backtest
-bt = Backtest(asset = "stock", asset_id = "msft", target="Close", period="1y", days_to_pred = 2 , num_lag_features = 7, historical_start_idx=250)
+bt = Backtest(asset = "stock", asset_id = "MSFT", target="Close", period="max", days_to_pred = 5, num_lag_features = 7, historical_start_idx=250)
+"""
 # Plot historical stock price
 bt.plot_historical()
 # Plot prediction on same plot as historical price for visual comparison
@@ -24,7 +25,7 @@ bt.plot_all()
 bt.score()
 # Compute volatility:
 vol = Volatility(bt.price)
-vol.get_historical_volatility()
+print("Historical volatility is {}".format(vol.get_historical_volatility()))
 # Plot log change
 vol.plot_log_change()
 # Compute implied volatility
@@ -37,7 +38,9 @@ bt.compute_corr()
 bt.plot_corr()
 bt.compute_autocorr()
 bt.plot_autocorr()
-
+"""
+# Build and test covered call portfolio from start_date (default pd.to_datetime("2022-06-06", format="%Y-%m-%d"))
+bt.test_systematic_portfolio(start_date = pd.to_datetime("2022-06-06", format="%Y-%m-%d"))
 
 # General TODO list
 # Implement ARMA, Yule-Walker Equations, application of Method of Moments

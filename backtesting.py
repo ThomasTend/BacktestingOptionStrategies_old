@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from prediction import *
 from portfolio import *
 
-class Backtest(Prediction, Portfolio):
+class Backtest(Prediction):
     """
     Backtest class: streamlines the backtesting process. With this class we can:
     1) Fetch a stock's data from Yahoo Finance
@@ -23,7 +23,7 @@ class Backtest(Prediction, Portfolio):
     3) Visualize predictions on the past vs historical data
     4) Simulate a trading strategy/portfolio on past data and obtain statistics on the returns that one would have gotten
     """
-    def __init__(self, asset = "stock", asset_id = "msft", target="Close", period = "1y", days_to_pred = 2, num_lag_features= 20, historical_start_idx = 250):
+    def __init__(self, asset = "stock", asset_id = "msft", target="Close", period = "max", days_to_pred = 2, num_lag_features= 20, historical_start_idx = 250):
         """
         historical_start_idx is the number of days we look back from today. It is in units of days and has to be less than the days in period.
         """
@@ -64,8 +64,12 @@ class Backtest(Prediction, Portfolio):
         self.ax.legend()
         plt.show()
 
-    def test_systematic_portfolio(self):
+    def test_systematic_portfolio(self, start_date = pd.to_datetime("2022-06-06", format="%Y-%m-%d")):
         """
         We assume perfect liquidity (mainly can sell when we want to) and no transaction costs.
         """
-        pass
+        pf = Portfolio(asset = self.asset, asset_id = self.asset_id, target = self.target, period = self.period, days_to_pred = self.days_to_pred, num_lag_features = self.num_lag_features, start_date=start_date)
+        # then compute PnL if we liquidate the positions at expiry
+        self.initial_funds = sum(opt[3] for opt in pf.positions.values() if opt[1] in self.data.index)
+        self.PnL = sum([opt[0]+self.data.loc[opt[1], self.target]-opt[3] if opt[2] >= self.data.loc[opt[1], self.target] else opt[0]+opt[2]-opt[3] for opt in pf.positions.values() if opt[1] in self.data.index])
+        print("By investing {0}, the portfolio makes {1}".format(self.initial_funds, self.PnL))

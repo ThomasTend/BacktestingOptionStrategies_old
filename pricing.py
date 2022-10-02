@@ -24,25 +24,25 @@ class Option_Pricer():
         K = strike price
         r = continuously compounded risk-free rate. In practice, the zero-coupon risk-free interest rate for a maturity T.
         """
-        self.T = T
+        self.T = T/365
         self.S_0 = S_0
         self.sigma = sigma
         self.K = K
         self.r = r
-        self.d1 = (np.log(S_0 / K) + (r + sigma**2 / 2) * T) / (sigma * T**0.5)
-        self.d2 = self.d1 - sigma * T**0.5
+        self.d1 = (np.log(S_0 / K) + (r + sigma**2 / 2) * self.T) / (sigma * self.T**0.5)
+        self.d2 = self.d1 - sigma * self.T**0.5
         self.option_type = option_type
 
     def set_strike_price(self):
         if self.option_type == "call":
-            self.K = self.S_0 + 2.5
+            self.K = self.S_0 + 2.5 # dummy for now
         else: # put
             self.K = self.S_0 - 2.5
 
     def compute_d1(self, sigma):
         return (np.log(self.S_0 / self.K) + (self.r + sigma**2 / 2) * self.T) / (sigma * self.T**0.5)
 
-    def price_european_call(self, sigma, manual = False):
+    def price_european_call(self, sigma = 1, manual = False):
         if manual == True:
             d1 = self.compute_d1(sigma)
             d2 = d1 - sigma * self.T**0.5
@@ -50,7 +50,7 @@ class Option_Pricer():
         else:
             return self.S_0 * st.norm.cdf(self.d1) - self.K * np.exp(- self.r * self.T) * st.norm.cdf(self.d2)
 
-    def price_european_put(self, sigma, manual = False):
+    def price_european_put(self, sigma = 1, manual = False):
         if manual == True:
             d1 = self.compute_d1(sigma)
             d2 = d1 - sigma * self.T**0.5
@@ -58,7 +58,7 @@ class Option_Pricer():
         else:
             return self.K * np.exp(- self.r * self.T) * st.norm.cdf(-self.d2) - self.S_0 * st.norm.cdf(-self.d1)
 
-    def price_option(self, sigma, manual = False):
+    def price_option(self, sigma = 1, manual = False):
         if self.option_type == "call":
             return self.price_european_call(sigma, manual = manual)
         else: # put

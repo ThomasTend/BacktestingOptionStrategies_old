@@ -50,9 +50,9 @@ class Prediction(Features):
         Centre and normalize data.
         """
         scaler = SS()
-        for col in self.data.columns:
-            self.data.loc[:, col] = scaler.fit_transform(self.data.loc[:, col].to_numpy().reshape(-1, 1))
-        self.price = pd.DataFrame(scaler.fit_transform(self.price.to_numpy().reshape(-1, 1)), index=self.dates)
+        for col in self.data_tmp.columns:
+            self.data_tmp.loc[:, col] = scaler.fit_transform(self.data_tmp.loc[:, col].to_numpy().reshape(-1, 1))
+        self.price = pd.DataFrame(scaler.fit_transform(self.data_tmp[self.target].to_numpy().reshape(-1, 1)), index=self.data_tmp.index)
         
     def add_lags(self, cols_for_lag_features):
         """
@@ -63,14 +63,14 @@ class Prediction(Features):
         # features = past
         for col in cols_for_lag_features:
             for i in range(self.num_lag_features):
-                self.data[col+"_lag_{}".format(i+1)] = self.data[col].shift(i+1)
+                self.data_tmp[col+"_lag_{}".format(i+1)] = self.data_tmp[col].shift(i+1)
         # target = future
         for i in range(self.days_to_pred-1): # -1 because self.target is included
-                self.data[self.target + "_step_{}".format(i+1)] = self.data[self.target].shift(-(i+1))
+                self.data_tmp[self.target + "_step_{}".format(i+1)] = self.data_tmp[self.target].shift(-(i+1))
         # Save today's features for true prediction task
-        self.data_future = pd.DataFrame(self.data.loc[self.data.index[-1],:].to_numpy().reshape(1, -1), index=[self.data.index[-1]], columns=self.data.columns)
+        self.data_future = pd.DataFrame(self.data_tmp.loc[self.data_tmp.index[-1],:].to_numpy().reshape(1, -1), index=[self.data_tmp.index[-1]], columns=self.data_tmp.columns)
         other_to_rem = [col+"_lag_{}".format(self.num_lag_features) for col in cols_for_lag_features]
-        self.data_future.drop(labels=[self.target+"_lag_{}".format(self.num_lag_features)]+other_to_rem, axis=1, inplace=True)
+        self.data_future.drop(labels=[self.target+"_lag_{}".format(self.num_lag_features)] + other_to_rem, axis=1, inplace=True)
         d = {}
         for c in cols_for_lag_features:
             d[c]=c+"_lag_1"
@@ -82,24 +82,26 @@ class Prediction(Features):
         self.data_future.rename(mapper=d, axis=1, inplace=True)
         self.data_future.dropna(axis=1, inplace=True)
         # Drop rows containing a NaN value 
-        self.data.dropna(axis=0, inplace=True)
+        self.data_tmp.dropna(axis=0, inplace=True)
 
     def preprocess_data(self, other_lag_features = ["Volume"]):
         """
-        Ready features and target for training.
+        Ready features and target for training. For now just lag of the price and volume. This is not really enough 
+        because of the efficient market hypothesis. We need to use alternative data like classification of news
+        using naive Baye's classifier. 
         """
         # Remove extra columns
-        cols_to_rem = list(set(self.data.columns) - set(other_lag_features + [self.target]))
-        self.data.drop(labels=cols_to_rem, axis=1, inplace=True)
+        cols_to_rem = list(set(self.data_tmp.columns) - set(other_lag_features + [self.target]))
+        self.data_tmp.drop(labels=cols_to_rem, axis=1, inplace=True)
         # Scale data and add 2 day lags
         self.rescale_data()
         self.add_lags(other_lag_features)
         # Instantiate Feature object for analysis
-        Features.__init__(self, self.data, self.target)
+        Features.__init__(self, self.data_tmp, self.target)
         # Save names of target columns
         self.target_cols = [self.target] + [self.target + "_step_{}".format(i+1) for i in range(self.days_to_pred-1)]
         # Save names of lags of the target used as features
-        self.feature_cols = list(set(self.data.columns) - set(self.target_cols) - set(other_lag_features))
+        self.feature_cols = list(set(self.data_tmp.columns) - set(self.target_cols) - set(other_lag_features))
 
     def make_train_test(self, start_date=-1):
         """
@@ -110,14 +112,14 @@ class Prediction(Features):
         if start_date == -1:
             start_date = self.data.index[-1]
         # truncate up to the date at which future predictions start
-        self.data = self.data.loc[:start_date,:]
-        print('checking last date')
-        print(self.data.tail())
+        start_idx = list(self.data.index).index(start_date)
+        self.data_tmp = self.data.copy()
+        self.data_tmp = self.data_tmp.loc[:start_date,:]
         # Preprocess
         self.preprocess_data()
         # train_test_split
-        X = self.data[self.feature_cols]
-        y = self.data[self.target_cols]
+        X = self.data_tmp[self.feature_cols]
+        y = self.data_tmp[self.target_cols]
         X_train, X_test, y_train, y_test = TTS(X, y, shuffle=False)
         # Save the train and test sets to the model
         self.X_train = X_train
@@ -129,8 +131,6 @@ class Prediction(Features):
         """
         Print p-values of LR model coefficients.
         """
-        print(self.X_train)
-        print(self.y_train)
         X_with_intercept = sm.add_constant(self.X_train)
         ols = sm.OLS(self.y_train[self.target], X_with_intercept).fit()
         print(ols.summary())
