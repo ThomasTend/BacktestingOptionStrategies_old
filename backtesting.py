@@ -23,14 +23,14 @@ class Backtest(Prediction):
     3) Visualize predictions on the past vs historical data
     4) Simulate a trading strategy/portfolio on past data and obtain statistics on the returns that one would have gotten
     """
-    def __init__(self, asset = "stock", asset_id = "msft", target="Close", period = "max", days_to_pred = 2, num_lag_features= 20, historical_start_idx = 250):
+    def __init__(self, asset = "stock", asset_id = "MSFT", target="Close", period = "max", days_to_pred = 2, num_lag_features= 20, historical_start_idx = 250):
         """
         historical_start_idx is the number of days we look back from today. It is in units of days and has to be less than the days in period.
         """
         Prediction.__init__(self, asset, asset_id, target, period, days_to_pred, num_lag_features)
         self.make_train_test()
         self.train_and_predict()
-        self.fig, self.ax = plt.subplots(1,1)
+        self.fig, self.ax = plt.subplots(1,1, figsize=(12,7))
         if historical_start_idx == -1:
             self.historical_start_idx = len(self.dates)
         else:
@@ -72,4 +72,6 @@ class Backtest(Prediction):
         # then compute PnL if we liquidate the positions at expiry
         self.initial_funds = sum(opt[3] for opt in pf.positions.values() if opt[1] in self.data.index)
         self.PnL = sum([opt[0]+self.data.loc[opt[1], self.target]-opt[3] if opt[2] >= self.data.loc[opt[1], self.target] else opt[0]+opt[2]-opt[3] for opt in pf.positions.values() if opt[1] in self.data.index])
-        print("By investing {0}, the portfolio makes {1}".format(self.initial_funds, self.PnL))
+        start = start_date.strftime("%Y-%m-%d")
+        end = self.data.index[-1].strftime("%Y-%m-%d")
+        print("By investing ${0} in {1} using the covered call strategy between {2} and {3}, the portfolio makes ${4}".format(self.initial_funds, self.asset_id, start, end, self.PnL))

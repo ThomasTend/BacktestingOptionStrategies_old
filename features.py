@@ -22,7 +22,7 @@ from numerical import *
 
 class Returns():
     def __init__(self, price):
-        self.price = price
+        self.price = (price-price.mean())/price.std()
         self.price_lag = self.price.shift(1)
         price_list = self.price.to_numpy()
         price_lag_list = self.price_lag.to_numpy()
@@ -43,7 +43,7 @@ class Returns():
         """
         Plots a histogram of percentage price changes (may have fat tails, multiple modes, not necessarily normal)
         """
-        self.returns.plot(kind="hist", title="Percentage price change")
+        self.returns.plot(kind="hist", figsize=(12,7), title="Percentage price change")
         plt.show()
 
     def get_log_change(self):
@@ -54,11 +54,6 @@ class Returns():
         # drop NaN values
         mask = ~np.isnan(self.log_change_no_nan)
         self.log_change_no_nan = pd.Series(self.log_change_no_nan[mask], index=self.price_df.index[mask])
-    
-    def plot_log_change(self):
-        self.price_df.log_change.plot(kind="line", label="Log change in price")
-        plt.tight_layout()
-        plt.show()
 
 class Volatility(Option_Pricer, Returns):
     """
@@ -83,9 +78,14 @@ class Volatility(Option_Pricer, Returns):
         Get volatility (annualized std of log change) assuming stationarity.
         """
         self.get_log_change()
-        hist_vol = np.sqrt(252)*self.log_change_no_nan.std()
+        hist_vol = np.sqrt(252)*self.log_change_no_nan[-min(252, self.log_change_no_nan.shape[0]):].std()
         # print("Volatility is: {}".format(hist_vol))
         return hist_vol
+
+    def plot_historical_volatility(self):
+        self.hist_vol_series = pd.Series([np.sqrt(252)*self.log_change_no_nan[:i].std() for i in range(len(self.log_change_no_nan))], index=self.log_change_no_nan.index, name="hist_vol")
+        self.hist_vol_series.plot(kind="line", figsize=(12,7), xlabel="Time", ylabel="Historical volatility", title="Historical volatility vs Time")
+        plt.show()
 
     def get_implied_volatility(self, S_0, OP_obs, K, T, r, option_type = "call"):
         """
@@ -100,16 +100,16 @@ class Volatility(Option_Pricer, Returns):
         self.S_0 = S_0
         self.OP_obs = OP_obs
         self.K = K 
-        self.T = T/365
-        self.sigma = (2 * math.pi / self.T)**0.5 * self.OP_obs / self.S_0 # initial guess
+        self.T = T
+        self.sigma = (2 * math.pi / (T/365))**0.5 * self.OP_obs / self.S_0 # initial guess
         self.r = r
         # Initialize Option_Pricer
         Option_Pricer.__init__(self, T = self.T, S_0 = self.S_0, sigma = self.sigma, K = self.K, r = self.r, option_type = option_type)
         # Set function to be the difference between observed price and BSM price
-        f = lambda x: self.OP_obs - self.price_option(x, manual = True)
+        f = lambda x: self.OP_obs - self.price_option(sigma=x, manual = True)
         # Return output of bisection algorithm
         num = Numerical()
-        return num.bisection(f, 0, 2)
+        return num.bisection(f, 0.01, 2)
 
     # def init_Option_Pricer(self, S_0, OP_obs, K, T, r, sigma, option_type):
     #     Option_Pricer.__init__(self, T = T, S_0 = S_0, sigma = sigma, K = K, r = r, option_type = option_type)
@@ -137,7 +137,20 @@ class VaR(Returns):
         """
         z_score = st.norm.ppf(1-threshold)
         self.VaR = z_score*self.returns.std()*position_size
-        print("95% VaR is {}".format(self.VaR))
+
+    def plot_log_change_and_VaR(self):
+        self.get_single_stock_VaR()
+        print("Latest 95% VaR is {:.2f}".format(self.VaR))
+        nf_VaR_line = -st.norm.ppf(0.95)*self.returns.rolling(252).std() # TODO: revisit this
+        nn_VaR_line = -st.norm.ppf(0.99)*self.returns.rolling(252).std()
+        fig, ax = plt.subplots(1, 1, figsize=(12,7))
+        ax.plot(self.price_df.index, self.price_df.log_change, label= "log-change in price") 
+        ax.plot(self.price_df.index, nf_VaR_line, label="95% Historical VaR", color="orange")
+        ax.plot(self.price_df.index, nn_VaR_line, label="99% Historical VaR", color="red")
+        ax.set(xlabel="Time", ylabel="Log-change in price", title="Log-change in price vs Time")
+        ax.legend()
+        plt.tight_layout()
+        plt.show()
 
 class Correlations():
     """
@@ -158,7 +171,7 @@ class Correlations():
         """
         Compute correlations between target and features.
         """
-        ax = self.target_feature_corr.plot(kind="line", title="Target-Feature Correlations")
+        ax = self.target_feature_corr.plot(kind="line", figsize=(12,7), xlabel="Features", ylabel="Correlation with target", title="Target-feature correlations")
         ax.set_xticks(np.arange(len(self.target_feature_corr.index)))
         # if few features, print their names along the x-axis
         if len(self.target_feature_corr.index) < 20: 
@@ -172,16 +185,16 @@ class Correlations():
         High autocorrelation for many lags suggests momentum.
         Autocorrelation which decays quickly as we lag further into the past suggests high volatility and low momentum.
         """
-        self.partial_autocorr = [self.time_series[self.target].autocorr(lag=i) for i in range(max_lag)]
-        print(*("Partial autocorrelation with lag {} is {}".format(i, self.partial_autocorr[i]) for i in range(max_lag)), sep='\n')
+        self.autocorr = [self.time_series[self.target].autocorr(lag=i) for i in range(max_lag)]
+        # print(*("Autocorrelation with lag {} is {}".format(i, self.autocorr[i]) for i in range(max_lag)), sep='\n')
         
     def plot_autocorr(self):
         """
-        Visualize partial autocorrelation of target.
+        Visualize autocorrelation of target.
         """
-        horiz_axis = np.arange(len(self.partial_autocorr))
-        df = pd.Series(self.partial_autocorr, index=horiz_axis)
-        df.plot(kind="line", title="Target autocorrelation")
+        horiz_axis = np.arange(len(self.autocorr))
+        df = pd.Series(self.autocorr, index=horiz_axis)
+        df.plot(kind="line", figsize=(12,7), xlabel="Target lag", ylabel="Autocorrelation", title="Target autocorrelation")
         plt.tight_layout()
         plt.show()
 
