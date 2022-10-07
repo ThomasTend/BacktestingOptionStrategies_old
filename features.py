@@ -6,12 +6,16 @@ This file implements the feature selection tool.
 
 """ 1 - FEATURE SELECTION TOOLS"""
 
+# import os to get file sizes for news data
+import os
+
 # math
 import math
 
 # data manipulation modules
 import pandas as pd
 import numpy as np
+from datetime import datetime as dt
 
 # Graphing modules
 import matplotlib.pyplot as plt
@@ -19,6 +23,12 @@ import matplotlib.pyplot as plt
 # import classes used in feature analysis, construction or selection
 from pricing import *
 from numerical import *
+
+# Machine Learning models
+from sklearn.naive_bayes import MultinomialNB as MNB
+from sklearn.preprocessing import LabelEncoder as LE
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans as KM
 
 class Returns():
     def __init__(self, price):
@@ -198,6 +208,31 @@ class Correlations():
         plt.tight_layout()
         plt.show()
 
+class Sentiment_Classifier():
+    """
+    Uses k-means algorithm to classify financial news quotes into 
+    one of two sentiment categories: positive, negative.
+    Our data is not labelled so we use k-means. 
+    """
+    def __init__(self, news_data, text_col):
+        """
+        data is a dataframe containing financial news text.
+        text_col is the column of interest, e.g. title or content.
+        """
+        self.news_data = news_data
+        self.text_col = text_col
+        # Sparse matrix frequency representation
+        vectorizer = TfidfVectorizer()
+        # Save fit for re-use in prediction
+        
+        self.fitted_dict = vectorizer.fit(self.news_data[self.text_col])
+        X = self.fitted_dict.transform(self.news_data[self.text_col])
+        # Run k-means on 2 clusters
+        self.kmeans = KM(n_clusters=2).fit(X)
+
+    def predict_class(self, X_new):
+        self.sentiment = self.kmeans.predict(self.fitted_dict.transform(X_new))
+
 class Fourier():
     """
     Fourier class: compute Fourier features.
@@ -205,6 +240,32 @@ class Fourier():
     def __init__(self):
         pass
 
-class Features(Returns, Correlations):
+def validate_date(date_string, format):
+    """
+    Returns True if date_string can be parsed to datetime in the given format, False otherwise. 
+    """
+    try:
+        dt.strptime(date_string, format)
+        return True
+    except ValueError:
+        return False
+
+class Features(Returns, Correlations, Sentiment_Classifier):
     def __init__(self, time_series, target):
         Correlations.__init__(self, time_series, target)
+        # Load news data
+        date_parser = lambda x : dt.strptime(x, '%d/%m/%Y') if (pd.isnull(x) != True) and validate_date(x, '%d/%m/%Y') else np.NaN
+        # Run the following if the news.csv file was updated and is more than 100 MB; GitHub only allows 100 MB per file
+        """
+        self.news_data = pd.read_csv("data/US_equities_news/news.csv", parse_dates=['release_date'], date_parser=date_parser)
+        # 90MB is approximately 25600 rows in these news files
+        for i in range((os.path.getsize('data/US_equities_news/news.csv') // (90*1024**2))+1):
+            next_news_csv = self.news_data.iloc[i*25600:(i+1)*25600+1, :]
+            next_news_csv.to_csv('data/US_equities_news/news_{}.csv'.format(i+1))
+        """
+        # We use the first news file for unsupervised fitting (k-means)
+        self.news_data = pd.read_csv("data/US_equities_news/news_1.csv", parse_dates=['release_date'], date_parser=date_parser)
+        self.news_data.dropna(axis=0, inplace=True)
+        self.news_data.sort_values('release_date', inplace=True)
+        Sentiment_Classifier.__init__(self, self.news_data, 'content')
+        # TODO use news data close to prediction date for training in the prediction and backtesting classes

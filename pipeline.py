@@ -11,7 +11,7 @@ from features import *
 """ PIPELINE """
 
 # Create backtest
-bt = Backtest(asset = "stock", asset_id = "TSLA", target="Close", period="5y", days_to_pred = 5, num_lag_features = 20, historical_start_idx=504)
+bt = Backtest(asset = "stock", asset_id = "TSLA", target="Close", period="2y", days_to_pred = 5, num_lag_features = 20, historical_start_idx=500)
 # Plot historical stock price
 bt.plot_historical()
 # Plot prediction on same plot as historical price for visual comparison
@@ -39,7 +39,7 @@ bt.plot_corr()
 bt.compute_autocorr()
 bt.plot_autocorr()
 # Build and test covered call portfolio from start_date (default pd.to_datetime("2022-06-06", format="%Y-%m-%d"))
-bt.test_systematic_portfolio(start_date = pd.to_datetime("2022-06-06", format="%Y-%m-%d"))
+bt.test_systematic_portfolio(start_date = pd.to_datetime("2022-09-13", format="%Y-%m-%d"))
 
 # General TODO list
 # Implement ARMA, Yule-Walker Equations, application of Method of Moments
