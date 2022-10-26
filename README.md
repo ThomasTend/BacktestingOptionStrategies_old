@@ -20,7 +20,7 @@ from features import *
 # Create backtest with news sentiment features
 bt = Backtest(asset = "stock", asset_id = "GOOGL", target="Close", period="max", days_to_pred = 3, num_lag_features = 11, hist_start_date = "2015-12-21", hist_end_date="2016-02-01")
 
-# Build and test covered call portfolio from start_date (default pd.to_datetime("2022-06-06", format="%Y-%m-%d"))
+# Build and test covered call portfolio
 bt.test_systematic_portfolio()
 ```
 
