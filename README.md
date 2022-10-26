@@ -27,6 +27,8 @@ bt.test_systematic_portfolio()
     By investing $36.68949890136719 in GOOGL using the covered call strategy between 2016-01-25 and 2016-01-27, the portfolio makes $16.79542081953221 - a 45.78% return.
 
 
+<p>In practice, the returns would be significantly lower due to the transaction costs. We, however, do not have access to that information.</p>
+
 <h1>Additional functionalities</h1>
 <p>We visualize the backtest as follows.</p>
 
@@ -46,9 +48,11 @@ bt.plot_all()
 
 
     
-![png](README_files/readme_4_0.png)
+![png](README_files/README_5_0.png)
     
 
+
+<p> The reason the curves do not match exactly is that the features and the target are standardized using their mean and standard deviation on the training period to improve the learning, and we subsequently perform an inverse transformation still using the training period means and standard deviations.</p>
 
 <p>The mean squared error on the test data is obtained by calling the score() function on the Backtest object. It can be useful when comparing two different models, for instance the linear regression with or without the financial news sentiment analysis feature. We also plan to implement other relevant metrics such as the sharp ratio.</p>
 
@@ -61,11 +65,11 @@ bt.score()
     MSE is 1388.51465707896
 
 
-We compute and plot the Value-at-Risk (VaR) as follows. 
+<p> We compute and plot the Value-at-Risk (VaR) as follows. </p>
 
 
 ```python
-# Compute Value-at-Risk (VaR)
+# Compute VaR
 v = VaR(bt.price)
 v.get_single_stock_VaR()
 # Plot log change and VaR
@@ -77,7 +81,7 @@ v.plot_log_change_and_VaR()
 
 
     
-![png](README_files/readme_8_1.png)
+![png](README_files/README_10_1.png)
     
 
 
@@ -94,9 +98,11 @@ vol.plot_historical_volatility()
 
 
     
-![png](README_files/readme_9_1.png)
+![png](README_files/README_11_1.png)
     
 
+
+<p>In the automated feature engineering, we select high autocorrelation lags of the price and other features (volume, volatility, rolling averages and standard deviations of features, percentage changes, direction, news sentiment, etc.) which are highly correlated with the target variable. The next cell produces a visualization of these correlations.</p>
 
 
 ```python
@@ -109,26 +115,22 @@ bt.plot_autocorr()
 
 
     
-![png](README_files/readme_10_0.png)
+![png](README_files/README_13_0.png)
     
 
 
 
     
-![png](README_files/readme_10_1.png)
+![png](README_files/README_13_1.png)
     
 
+
+<p>Given the market price of an option, we may compute the resulting implied volatility as follows.</p>
 
 
 ```python
-# We can compute the implied volatility as follows
 print("Implied Volatility is {:.2f}%".format(100*vol.get_implied_volatility(S_0=100, OP_obs=1, K=100, T=30, r=0.05, option_type = "call")))
 ```
 
     Implied Volatility is 6.81%
 
-
-
-```python
-
-```
