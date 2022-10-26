@@ -85,6 +85,8 @@ v.plot_log_change_and_VaR()
     
 
 
+<p>In the next cell, we compute the historical volatility.</p>
+
 
 ```python
 # Compute and plot historical volatility:
@@ -98,7 +100,7 @@ vol.plot_historical_volatility()
 
 
     
-![png](README_files/README_11_1.png)
+![png](README_files/README_12_1.png)
     
 
 
@@ -115,17 +117,17 @@ bt.plot_autocorr()
 
 
     
-![png](README_files/README_13_0.png)
+![png](README_files/README_14_0.png)
     
 
 
 
     
-![png](README_files/README_13_1.png)
+![png](README_files/README_14_1.png)
     
 
 
-<p>Given the market price of an option, we may compute the resulting implied volatility as follows.</p>
+<p>Given the market price of an option, we compute the implied volatility as follows.</p>
 
 
 ```python
