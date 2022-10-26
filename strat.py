@@ -42,9 +42,8 @@ class Strat(Prediction, Volatility):
     
     Volatility inerits Option_Pricer and Returns.
     """
-    def __init__(self, asset="stock", asset_id="MSFT", target="Close", period="max", days_to_pred=2, num_lag_features=20, start_date=pd.to_datetime("2022-06-06", format="%Y-%m-%d")):
-        Prediction.__init__(self, asset=asset, asset_id=asset_id, target=target, period=period, days_to_pred=days_to_pred, num_lag_features=num_lag_features)
-        self.start_date = start_date
+    def __init__(self, asset="stock", asset_id="MSFT", target="Close", period="max", days_to_pred=3, num_lag_features=10, hist_start_date = "2017-10-26", hist_end_date="2018-01-05"):
+        Prediction.__init__(self, asset=asset, asset_id=asset_id, target=target, period=period, days_to_pred=days_to_pred, num_lag_features=num_lag_features, hist_start_date=hist_start_date, hist_end_date=hist_end_date)
         # Load options data
         date_parser = lambda x : dt.strptime(x, '%d/%m/%Y') if pd.isnull(x) != True else x
         self.options = pd.read_csv("data/stock_options.csv", parse_dates=['date', 'expiration_date'], date_parser=date_parser)
@@ -77,14 +76,17 @@ class Strat(Prediction, Volatility):
         (call_premium, expiry, strike, stock_price_at_init_time)
         """
         start_idx = list(self.data.index).index(self.start_date)
-        days_to_today = self.data.index[start_idx:-self.days_to_pred]
-        for start_date in days_to_today:
+        days_to_end = self.data.index[start_idx:-self.days_to_pred]
+        self.days_to_end_1 = days_to_end[0].strftime("%Y-%m-%d")
+        self.days_to_end_2 = days_to_end[-1].strftime("%Y-%m-%d")
+        for start_date in days_to_end:
+            self.start_date = start_date
             # Predict self.days_to_pred days after start_date
-            self.make_train_test(start_date=start_date)
+            self.make_train_test(is_strat=True)
             self.train_and_predict()
             self.X_future = self.data_future[self.feature_cols]
             self.y_future = self.model.predict(self.X_future.to_numpy().reshape(1,-1)).flatten()
-            K = self.data.loc[start_date,self.target]
+            K = self.data.loc[start_date, self.target]
             Volatility.__init__(self, self.price[:start_date])
             sigma = self.get_historical_volatility()
             expiry = start_date + timedelta(days=self.days_to_pred)
@@ -93,7 +95,7 @@ class Strat(Prediction, Volatility):
             if (predicted_stock_move < 0):
                 S_0 = self.data.loc[start_date,self.target]
                 Option_Pricer.__init__(self, T=self.days_to_pred, S_0=S_0, sigma=sigma, K=K, r=0.05, option_type="call")
-                call_premium = self.price_european_call(sigma)
+                call_premium = self.price_european_call(sigma) # set ask price
                 if call_premium > predicted_stock_move:
                     # long stock and short call
                     self.positions.update({'CC_{0}_{1}'.format(self.asset_id, self.cc_ctr):(call_premium, expiry, K, S_0)})

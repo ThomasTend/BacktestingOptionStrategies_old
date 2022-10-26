@@ -8,6 +8,8 @@ This file implements the feature selection tool.
 
 # import os to get file sizes for news data
 import os
+from os import listdir
+from os.path import isfile, join
 
 # math
 import math
@@ -34,10 +36,11 @@ class Returns():
     def __init__(self, price):
         self.price = (price-price.mean())/price.std()
         self.price_lag = self.price.shift(1)
+        self.price_lag.fillna(method='backfill', inplace=True)
         price_list = self.price.to_numpy()
         price_lag_list = self.price_lag.to_numpy()
-        self.price_df = pd.DataFrame(np.concatenate((self.price.to_numpy(), self.price_lag.to_numpy()), axis=1), columns=["price", "price_lag"], index = self.price.index)
-        self.price_df.dropna(axis=0, inplace=True)
+        self.price_df = pd.DataFrame(np.array(list(zip(self.price.to_numpy(), self.price_lag.to_numpy()))), columns=["price", "price_lag"], index = self.price.index)
+        # self.price_df.dropna(axis=0, inplace=True)
         self.price_df["log_change"] = np.log(self.price_df.price / self.price_df.price_lag).to_numpy().flatten()
 
     def get_returns(self):
@@ -60,10 +63,10 @@ class Returns():
         """
         Computes the log change time series: log( (Price on day t) / (price on day t-1) ).
         """
-        self.log_change_no_nan = np.log(self.price_df.price / self.price_df.price_lag).to_numpy()
+        self.log_change = pd.Series(np.log(self.price_df.price / self.price_df.price_lag).to_numpy(), index=self.price.index, name='log_change')
         # drop NaN values
-        mask = ~np.isnan(self.log_change_no_nan)
-        self.log_change_no_nan = pd.Series(self.log_change_no_nan[mask], index=self.price_df.index[mask])
+        mask = ~np.isnan(self.log_change)
+        self.log_change_no_nan = pd.Series(self.log_change[mask], index=self.price_df.index[mask])
 
 class Volatility(Option_Pricer, Returns):
     """
@@ -88,6 +91,8 @@ class Volatility(Option_Pricer, Returns):
         Get volatility (annualized std of log change) assuming stationarity.
         """
         self.get_log_change()
+        self.log_change.fillna(0, inplace=True)
+        self.hist_vol_full = pd.Series([self.log_change[:i].std() for i in range(self.log_change.shape[0])], index=self.price.index, name="hist_vol") # daily hist vol
         hist_vol = np.sqrt(252)*self.log_change_no_nan[-min(252, self.log_change_no_nan.shape[0]):].std()
         # print("Volatility is: {}".format(hist_vol))
         return hist_vol
@@ -121,9 +126,6 @@ class Volatility(Option_Pricer, Returns):
         num = Numerical()
         return num.bisection(f, 0.01, 2)
 
-    # def init_Option_Pricer(self, S_0, OP_obs, K, T, r, sigma, option_type):
-    #     Option_Pricer.__init__(self, T = T, S_0 = S_0, sigma = sigma, K = K, r = r, option_type = option_type)
-
 class VaR(Returns):
     """
     VaR class: Computes the Value-at-Risk for a given portfolio.
@@ -151,8 +153,8 @@ class VaR(Returns):
     def plot_log_change_and_VaR(self):
         self.get_single_stock_VaR()
         print("Latest 95% VaR is {:.2f}".format(self.VaR))
-        nf_VaR_line = -st.norm.ppf(0.95)*self.returns.rolling(252).std() # TODO: revisit this
-        nn_VaR_line = -st.norm.ppf(0.99)*self.returns.rolling(252).std()
+        nf_VaR_line = -st.norm.ppf(0.95)*self.returns.rolling(10).std() # TODO: revisit this
+        nn_VaR_line = -st.norm.ppf(0.99)*self.returns.rolling(10).std()
         fig, ax = plt.subplots(1, 1, figsize=(12,7))
         ax.plot(self.price_df.index, self.price_df.log_change, label= "log-change in price") 
         ax.plot(self.price_df.index, nf_VaR_line, label="95% Historical VaR", color="orange")
@@ -167,7 +169,7 @@ class Correlations():
     Correlation class: Computes correlation between independent variables and target.
     Computes the autocorrelation. Plots both. 
     """
-    def __init__(self, time_series, target):
+    def __init__(self, time_series, target): 
         """
         For now, time_series is assumed to be a pandas data frame.
         """
@@ -196,7 +198,6 @@ class Correlations():
         Autocorrelation which decays quickly as we lag further into the past suggests high volatility and low momentum.
         """
         self.autocorr = [self.time_series[self.target].autocorr(lag=i) for i in range(max_lag)]
-        # print(*("Autocorrelation with lag {} is {}".format(i, self.autocorr[i]) for i in range(max_lag)), sep='\n')
         
     def plot_autocorr(self):
         """
@@ -214,24 +215,58 @@ class Sentiment_Classifier():
     one of two sentiment categories: positive, negative.
     Our data is not labelled so we use k-means. 
     """
-    def __init__(self, news_data, text_col):
+    def __init__(self, news_data, text_col, asset_id): # TODO: input date and collect only score for that date
         """
         data is a dataframe containing financial news text.
         text_col is the column of interest, e.g. title or content.
         """
-        self.news_data = news_data
+        self.news_data = news_data # list of dataframes
         self.text_col = text_col
-        # Sparse matrix frequency representation
-        vectorizer = TfidfVectorizer()
-        # Save fit for re-use in prediction
-        
-        self.fitted_dict = vectorizer.fit(self.news_data[self.text_col])
-        X = self.fitted_dict.transform(self.news_data[self.text_col])
-        # Run k-means on 2 clusters
-        self.kmeans = KM(n_clusters=2).fit(X)
+        self.asset_id = asset_id
+        self.kmeans = []
+        self.ticker_news_data = []
+        self.vectorizer = []
+        for i in range(len(self.news_data)):
+            # Sparse matrix frequency representation
+            self.vectorizer.append(TfidfVectorizer())
+            # Save fit for re-use in prediction
+            self.ticker_news_data.append(self.news_data[i].loc[self.news_data[i].ticker == self.asset_id, self.text_col])
+            if self.ticker_news_data[i].empty == False:
+                self.vectorizer[i].fit(self.ticker_news_data[i])
+                X = self.vectorizer[i].transform(self.ticker_news_data[i])
+                # Run k-means on 2 clusters
+                self.kmeans.append(KM(n_clusters=2).fit(X))
+            else:
+                self.kmeans.append(np.NaN)
 
-    def predict_class(self, X_new):
-        self.sentiment = self.kmeans.predict(self.fitted_dict.transform(X_new))
+    def classify_news(self, news_date):
+        self.classification = []
+        if news_date <= pd.to_datetime("2020-02-13", format="%Y-%m-%d"):
+            for i in range(len(self.news_data)):
+                X = self.news_data[i].loc[(self.news_data[i].ticker == self.asset_id) & (self.news_data[i].release_date == news_date), self.text_col]
+                if X.empty == False:
+                    # Run k-means on 2 clusters
+                    self.classification.append(self.kmeans[i].predict(self.vectorizer[i].transform(X)))
+                else:
+                    self.classification.append(np.NaN)
+        else: 
+            self.classification = [np.NaN for i in range(len(self.news_data))]
+
+    def get_symbol_news_score(self, news_date): 
+        """
+        Transforms sentiment class to +1 or -1 and sums all scores on a given day for symbol self.asset_id. 
+        """
+        # Predict news sentiment for asset_id on news_date
+        self.classify_news(news_date)
+        # select files where there is news on self.asset_id 
+        self.classification = np.array(self.classification)
+        self.classification = self.classification[~pd.isnull(self.classification)]
+        if self.classification.size != 0:
+            self.classification = [x for pred in self.classification for x in pred]
+            return sum([1 if x==1 else -1 for x in self.classification])
+        else:
+            return 0 # no news or neutral news
+
 
 class Fourier():
     """
@@ -250,22 +285,29 @@ def validate_date(date_string, format):
     except ValueError:
         return False
 
-class Features(Returns, Correlations, Sentiment_Classifier):
-    def __init__(self, time_series, target):
+class Features(Correlations, Sentiment_Classifier, Volatility):
+    def __init__(self, time_series, target, asset_id):
         Correlations.__init__(self, time_series, target)
-        # Load news data
-        date_parser = lambda x : dt.strptime(x, '%d/%m/%Y') if (pd.isnull(x) != True) and validate_date(x, '%d/%m/%Y') else np.NaN
+        """ 
+        Load news data. We use a financial news dataset about US equities from 2008/10/02 to 2017/02/13 that can be found on Kaggle. 
+        """
+        self.date_parser = lambda x : dt.strptime(x, '%d/%m/%Y') if (pd.isnull(x) != True) and validate_date(x, '%d/%m/%Y') else np.NaN
         # Run the following if the news.csv file was updated and is more than 100 MB; GitHub only allows 100 MB per file
         """
-        self.news_data = pd.read_csv("data/US_equities_news/news.csv", parse_dates=['release_date'], date_parser=date_parser)
+        self.news_data = pd.read_csv("data/US_equities_news/news.csv", parse_dates=['release_date'], date_parser=self.date_parser)
         # 90MB is approximately 25600 rows in these news files
         for i in range((os.path.getsize('data/US_equities_news/news.csv') // (90*1024**2))+1):
             next_news_csv = self.news_data.iloc[i*25600:(i+1)*25600+1, :]
+            print('at step {}'.format(i+1))
+            print(os.getcwd())
             next_news_csv.to_csv('data/US_equities_news/news_{}.csv'.format(i+1))
+        # print([x for x in os.listdir() if x == 'testfile.csv'])
         """
-        # We use the first news file for unsupervised fitting (k-means)
-        self.news_data = pd.read_csv("data/US_equities_news/news_1.csv", parse_dates=['release_date'], date_parser=date_parser)
-        self.news_data.dropna(axis=0, inplace=True)
-        self.news_data.sort_values('release_date', inplace=True)
-        Sentiment_Classifier.__init__(self, self.news_data, 'content')
-        # TODO use news data close to prediction date for training in the prediction and backtesting classes
+        # We use all the news files for unsupervised fitting (k-means)
+        self.news_data = []
+        news_files_num = len([f for f in listdir('./data/US_equities_news/') if isfile(join('./data/US_equities_news/', f))])
+        for i in range(1, news_files_num+1):
+            self.news_data.append(pd.read_csv(os.path.join(os.path.dirname(__file__),'data/US_equities_news/news_{}.csv'.format(i)), parse_dates=['release_date'], date_parser=self.date_parser))
+            self.news_data[i-1].dropna(axis=0, inplace=True)
+            self.news_data[i-1].sort_values('release_date', inplace=True)
+        Sentiment_Classifier.__init__(self, self.news_data, 'content', asset_id)
