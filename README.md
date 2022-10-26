@@ -24,7 +24,6 @@ bt = Backtest(asset = "stock", asset_id = "GOOGL", target="Close", period="max",
 bt.test_systematic_portfolio()
 ```
 
-    Training period ends on 2016-01-21.
     By investing $36.68949890136719 in GOOGL using the covered call strategy between 2016-01-25 and 2016-01-27, the portfolio makes $16.79542081953221 - a 45.78% return.
 
 
@@ -90,6 +89,15 @@ print("Lastest historical volatility is {:.2f}%".format(vol.get_historical_volat
 vol.plot_historical_volatility()
 ```
 
+    Lastest historical volatility is 17.39%
+
+
+
+    
+![png](readme_files/readme_9_1.png)
+    
+
+
 
 ```python
 # Compute Correlation and autocorrelation
@@ -100,10 +108,25 @@ bt.plot_autocorr()
 ```
 
 
+    
+![png](readme_files/readme_10_0.png)
+    
+
+
+
+    
+![png](readme_files/readme_10_1.png)
+    
+
+
+
 ```python
 # We can compute the implied volatility as follows
 print("Implied Volatility is {:.2f}%".format(100*vol.get_implied_volatility(S_0=100, OP_obs=1, K=100, T=30, r=0.05, option_type = "call")))
 ```
+
+    Implied Volatility is 6.81%
+
 
 
 ```python
