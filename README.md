@@ -46,7 +46,7 @@ bt.plot_all()
 
 
     
-![png](README_files/README_4_0.png)
+![png](README_files/readme_4_0.png)
     
 
 
@@ -77,7 +77,7 @@ v.plot_log_change_and_VaR()
 
 
     
-![png](README_files/README_8_1.png)
+![png](README_files/readme_8_1.png)
     
 
 
@@ -94,7 +94,7 @@ vol.plot_historical_volatility()
 
 
     
-![png](README_files/README_9_1.png)
+![png](README_files/readme_9_1.png)
     
 
 
@@ -109,13 +109,13 @@ bt.plot_autocorr()
 
 
     
-![png](README_files/README_10_0.png)
+![png](README_files/readme_10_0.png)
     
 
 
 
     
-![png](README_files/README_10_1.png)
+![png](README_files/readme_10_1.png)
     
 
 
