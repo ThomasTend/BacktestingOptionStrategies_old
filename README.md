@@ -81,7 +81,7 @@ v.plot_log_change_and_VaR()
 
 
     
-![png](README_files/README_10_1.png)
+![png](README_files/readme_10_1.png)
     
 
 
