@@ -153,8 +153,8 @@ class VaR(Returns):
     def plot_log_change_and_VaR(self):
         self.get_single_stock_VaR()
         print("Latest 95% VaR is {:.2f}".format(self.VaR))
-        nf_VaR_line = -st.norm.ppf(0.95)*self.returns.rolling(10).std() # TODO: revisit this
-        nn_VaR_line = -st.norm.ppf(0.99)*self.returns.rolling(10).std()
+        nf_VaR_line = -st.norm.ppf(0.95)*self.returns.rolling(5).std() # TODO: revisit this
+        nn_VaR_line = -st.norm.ppf(0.99)*self.returns.rolling(5).std()
         fig, ax = plt.subplots(1, 1, figsize=(12,7))
         ax.plot(self.price_df.index, self.price_df.log_change, label= "log-change in price") 
         ax.plot(self.price_df.index, nf_VaR_line, label="95% Historical VaR", color="orange")
@@ -191,13 +191,13 @@ class Correlations():
         plt.tight_layout()
         plt.show()
 
-    def compute_autocorr(self, max_lag=200):
+    def compute_autocorr(self, max_lag=20):
         """
         Computes the autocorrelation of the target series for all lags up to max_lag.
         High autocorrelation for many lags suggests momentum.
         Autocorrelation which decays quickly as we lag further into the past suggests high volatility and low momentum.
         """
-        self.autocorr = [self.time_series[self.target].autocorr(lag=i) for i in range(max_lag)]
+        self.autocorr = np.array([self.time_series[self.target].autocorr(lag=i) for i in range(max_lag)])
         
     def plot_autocorr(self):
         """
@@ -266,7 +266,6 @@ class Sentiment_Classifier():
             return sum([1 if x==1 else -1 for x in self.classification])
         else:
             return 0 # no news or neutral news
-
 
 class Fourier():
     """
